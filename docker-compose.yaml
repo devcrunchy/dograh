@@ -101,22 +101,10 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    # Explicit Traefik labels — route call.chati.ai/api/* STRAIGHT to the api
-    # container (uvicorn), bypassing the Next.js UI. The UI proxies /api over
-    # HTTP but CANNOT proxy WebSocket upgrades, so the signaling WS (web calls)
-    # 502'd. High priority beats the UI's catch-all Host() router; this network
-    # label tells Traefik which network to reach the (multi-network) container on.
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
-      - "traefik.http.routers.dograh-api.rule=Host(`call.chati.ai`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.dograh-api.entrypoints=websecure"
-      - "traefik.http.routers.dograh-api.tls=true"
-      - "traefik.http.routers.dograh-api.priority=1000"
-      - "traefik.http.services.dograh-api.loadbalancer.server.port=8000"
+    # Internal only — the `proxy` service (nginx) is the public entrypoint and
+    # reaches api over app-network. No Traefik labels here.
     networks:
       - app-network
-      - dokploy-network
 
   ui:
     image: ${REGISTRY:-dograhai}/dograh-ui:${DOGRAH_TAG:-1.37.0}
@@ -140,6 +128,33 @@ services:
           "CMD-SHELL",
           "wget --no-verbose --tries=1 --spider http://127.0.0.1:3010 || exit 1",
         ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Internal only — reached by the `proxy` service over app-network.
+    networks:
+      - app-network
+
+  # Public entrypoint. Dokploy/Traefik routes the domain (call.chati.ai) to
+  # THIS service on port 80. nginx then splits /api/* -> api (with WebSocket
+  # upgrade) and everything else -> ui — the routing dograh's bundled nginx did.
+  # This avoids Next.js (which can't proxy WebSocket upgrades) intercepting the
+  # signaling WS used by web calls.
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./nginx/dograh.proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      ui:
+        condition: service_healthy
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1/api/v1/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
