@@ -101,6 +101,7 @@ services:
       start_period: 60s
     networks:
       - app-network
+      - dokploy-network
 
   ui:
     image: ${REGISTRY:-dograhai}/dograh-ui:${DOGRAH_TAG:-1.37.0}
@@ -129,6 +130,7 @@ services:
       start_period: 30s
     networks:
       - app-network
+      - dokploy-network
 
 volumes:
   shared-tmp:
@@ -141,3 +143,8 @@ volumes:
 networks:
   app-network:
     driver: bridge
+  # Dokploy's shared network — lets these containers reach the
+  # calling-postgres / calling-redis database services (and lets Traefik
+  # route the domains to api/ui).
+  dokploy-network:
+    external: true
