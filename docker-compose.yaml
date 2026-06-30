@@ -101,6 +101,19 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    # Explicit Traefik labels — route call.chati.ai/api/* STRAIGHT to the api
+    # container (uvicorn), bypassing the Next.js UI. The UI proxies /api over
+    # HTTP but CANNOT proxy WebSocket upgrades, so the signaling WS (web calls)
+    # 502'd. High priority beats the UI's catch-all Host() router; this network
+    # label tells Traefik which network to reach the (multi-network) container on.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.dograh-api.rule=Host(`call.chati.ai`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.dograh-api.entrypoints=websecure"
+      - "traefik.http.routers.dograh-api.tls=true"
+      - "traefik.http.routers.dograh-api.priority=1000"
+      - "traefik.http.services.dograh-api.loadbalancer.server.port=8000"
     networks:
       - app-network
       - dokploy-network
