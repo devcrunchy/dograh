@@ -87,8 +87,10 @@ services:
       ENABLE_TELEMETRY: "${ENABLE_TELEMETRY:-false}"
       POSTHOG_API_KEY: "phc_ItizB1dP6yv7ZYobbcqrpxTdbomDA8hJFSEmAMdYvIr"
       POSTHOG_HOST: "https://us.i.posthog.com"
-    ports:
-      - "8000:8000"
+    # No host port published — Dokploy/Traefik routes the domain to container
+    # port 8000 over dokploy-network (avoids host-port clashes with other apps).
+    expose:
+      - "8000"
     healthcheck:
       test:
         [
@@ -113,8 +115,9 @@ services:
       ENABLE_TELEMETRY: "${ENABLE_TELEMETRY:-false}"
       POSTHOG_KEY: "phc_ItizB1dP6yv7ZYobbcqrpxTdbomDA8hJFSEmAMdYvIr"
       POSTHOG_HOST: "https://us.posthog.com"
-    ports:
-      - "3010:3010"
+    # No host port published — Traefik routes the domain to container port 3010.
+    expose:
+      - "3010"
     depends_on:
       api:
         condition: service_healthy
