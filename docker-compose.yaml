@@ -142,7 +142,11 @@ services:
   # This avoids Next.js (which can't proxy WebSocket upgrades) intercepting the
   # signaling WS used by web calls.
   proxy:
-    image: nginx:1.27-alpine
+    # Built from nginx/Dockerfile so the config is baked in — a redeploy always
+    # ships the current config (a bind-mount left nginx on stale config).
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
     restart: unless-stopped
     # proxy sits on two networks (app-network to reach api/ui, dokploy-network
     # for Traefik). Tell Traefik which network to dial, or it may pick the
@@ -151,8 +155,6 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
       - "traefik.http.services.dograh-proxy.loadbalancer.server.port=80"
-    volumes:
-      - ./nginx/dograh.proxy.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       api:
         condition: service_healthy
